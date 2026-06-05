@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TVT Inventory Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f0f2f5;min-height:100vh;padding:1rem}
+.header{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;flex-wrap:wrap;gap:8px}
+.header h1{font-size:18px;font-weight:700;color:#111}
+.live{display:flex;align-items:center;gap:6px;font-size:13px;color:#16a34a;font-weight:500}
+.live-dot{width:8px;height:8px;border-radius:50%;background:#16a34a;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.refresh-btn{font-size:12px;color:#666;background:white;border:1px solid #ddd;padding:6px 14px;border-radius:8px;cursor:pointer;font-weight:500}
+.tabs{display:flex;gap:8px;margin-bottom:1.25rem}
+.tab{padding:8px 20px;border-radius:8px;border:1.5px solid #e5e7eb;font-size:14px;cursor:pointer;background:white;color:#666;font-weight:500}
+.tab.active{background:#111;color:white;border-color:#111}
+.summary{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:1.25rem}
+.stat{background:white;border-radius:12px;padding:14px 16px;border:1px solid #e5e7eb}
+.stat-label{font-size:12px;color:#888;margin-bottom:6px;font-weight:500}
+.stat-value{font-size:26px;font-weight:700;color:#111}
+.stat-value.warn{color:#d97706}
+.stat-value.danger{color:#dc2626}
+.stat-sub{font-size:11px;color:#aaa;margin-top:2px}
+.legend{display:flex;gap:14px;margin-bottom:1rem}
+.leg{display:flex;align-items:center;gap:5px;font-size:12px;color:#666;font-weight:500}
+.leg-dot{width:9px;height:9px;border-radius:50%}
+.cat-section{margin-bottom:1.25rem}
+.cat-title{font-size:12px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px}
+.items-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px}
+.item{border-radius:10px;padding:12px;border:1.5px solid #e5e7eb;background:white}
+.item.ok{background:#f0fdf4;border-color:#86efac}
+.item.warn{background:#fffbeb;border-color:#fcd34d}
+.item.danger{background:#fef2f2;border-color:#fca5a5}
+.item-name{font-size:11px;margin-bottom:4px;font-weight:500}
+.item.ok .item-name{color:#166534}
+.item.warn .item-name{color:#92400e}
+.item.danger .item-name{color:#991b1b}
+.item-count{font-size:24px;font-weight:700}
+.item.ok .item-count{color:#16a34a}
+.item.warn .item-count{color:#d97706}
+.item.danger .item-count{color:#dc2626}
+.item-of{font-size:11px;color:#aaa;margin-top:1px}
+.progress{height:4px;border-radius:2px;margin-top:8px;background:#e5e7eb;overflow:hidden}
+.progress-bar{height:100%;border-radius:2px}
+.item.ok .progress-bar{background:#16a34a}
+.item.warn .progress-bar{background:#d97706}
+.item.danger .progress-bar{background:#dc2626}
+.log-card{margin-top:1.5rem;background:white;border-radius:12px;padding:1rem 1.25rem;border:1px solid #e5e7eb}
+.log-title{font-size:12px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px}
+.log-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid #f3f4f6;font-size:13px}
+.log-row:last-child{border-bottom:none}
+.log-time{color:#aaa;font-size:11px;min-width:52px;font-weight:500}
+.log-text{color:#333;flex:1}
+.log-product{font-weight:600;color:#111}
+.badge{font-size:11px;padding:3px 9px;border-radius:99px;font-weight:600;background:#eff6ff;color:#1d4ed8}
+.loading{text-align:center;padding:2.5rem;color:#aaa;font-size:14px}
+.error-bar{background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;padding:12px 16px;color:#991b1b;font-size:13px;margin-bottom:1rem}
+.updated{font-size:11px;color:#aaa;text-align:right;margin-top:8px}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>📦 TVT Inventory Dashboard</h1>
+  <div style="display:flex;align-items:center;gap:10px">
+    <button class="refresh-btn" onclick="loadData()">↻ Refresh</button>
+    <div class="live"><span class="live-dot"></span>Live</div>
+  </div>
+</div>
+
+<div id="err"></div>
+
+<div class="tabs">
+  <button class="tab active" onclick="switchBuilding('Destiny 1',this)">🏢 Destiny 1</button>
+  <button class="tab" onclick="switchBuilding('Destiny 2',this)">🏢 Destiny 2</button>
+</div>
+
+<div id="summary" class="summary"><div style="grid-column:span 3" class="loading">Loading...</div></div>
+
+<div class="legend">
+  <span class="leg"><span class="leg-dot" style="background:#16a34a"></span>Good</span>
+  <span class="leg"><span class="leg-dot" style="background:#d97706"></span>Running low</span>
+  <span class="leg"><span class="leg-dot" style="background:#dc2626"></span>Critical</span>
+</div>
+
+<div id="content"><div class="loading">Loading inventory...</div></div>
+
+<div class="log-card">
+  <div class="log-title">📋 Recent activity</div>
+  <div id="log"><div class="loading">Loading...</div></div>
+</div>
+
+<div class="updated" id="updated"></div>
+
+<script>
+const { createClient } = supabase;
+const client = createClient(
+  'https://hvqrcfhggbrtjioabmyr.supabase.co',
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh2cXJjZmhnZ2JydGppb2FibXlyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA0MzIzMjYsImV4cCI6MjA5NjAwODMyNn0.CgkMIcCUS3Dd9qKhzETlBrba-5ODiO1hQvipTjoiIm0'
+);
+
+const CATS = ['Chemicals','Gloves','Dusting Supplies','Rags','Mops'];
+let building = 'Destiny 1';
+let storageData = [], logsData = [];
+
+function getStatus(item) {
+  if (item.current_count <= item.danger_threshold) return 'danger';
+  if (item.current_count <= item.warn_threshold) return 'warn';
+  return 'ok';
+}
+
+async function loadData() {
+  try {
+    document.getElementById('err').innerHTML = '';
+
+    const { data: sData, error: sErr } = await client
+      .from('storage')
+      .select('*')
+      .order('category')
+      .order('product_name');
+
+    if (sErr) throw new Error(sErr.message);
+    storageData = sData;
+
+    const { data: lData, error: lErr } = await client
+      .from('activity_log')
+      .select('*')
+      .order('timestamp', { ascending: false })
+      .limit(15);
+
+    if (lErr) throw new Error(lErr.message);
+    logsData = lData;
+
+    render();
+    document.getElementById('updated').textContent = 'Updated: ' + new Date().toLocaleTimeString();
+  } catch(e) {
+    document.getElementById('err').innerHTML = `<div class="error-bar">⚠️ Error: ${e.message}</div>`;
+    console.error(e);
+  }
+}
+
+function render() {
+  const items = storageData.filter(i => i.building === building);
+  let total = items.length, low = 0, crit = 0;
+  items.forEach(i => { const s = getStatus(i); if(s==='warn')low++; if(s==='danger')crit++; });
+
+  document.getElementById('summary').innerHTML = `
+    <div class="stat"><div class="stat-label">Total products</div><div class="stat-value">${total}</div><div class="stat-sub">in storage</div></div>
+    <div class="stat"><div class="stat-label">⚠️ Running low</div><div class="stat-value warn">${low}</div><div class="stat-sub">restock soon</div></div>
+    <div class="stat"><div class="stat-label">🔴 Critical</div><div class="stat-value danger">${crit}</div><div class="stat-sub">restock now</div></div>
+  `;
+
+  let html = '';
+  CATS.forEach(cat => {
+    const ci = items.filter(i => i.category === cat);
+    if (!ci.length) return;
+    html += `<div class="cat-section"><div class="cat-title">${cat}</div><div class="items-grid">`;
+    ci.forEach(item => {
+      const s = getStatus(item);
+      const pct = Math.round((item.current_count / item.max_count) * 100);
+      html += `<div class="item ${s}">
+        <div class="item-name">${item.product_name}</div>
+        <div class="item-count">${item.current_count}</div>
+        <div class="item-of">of ${item.max_count}</div>
+        <div class="progress"><div class="progress-bar" style="width:${pct}%"></div></div>
+      </div>`;
+    });
+    html += `</div></div>`;
+  });
+  document.getElementById('content').innerHTML = html || '<div class="loading">No items</div>';
+
+  const bl = logsData.filter(l => l.building === building);
+  document.getElementById('log').innerHTML = bl.length ? bl.map(l => {
+    const t = new Date(l.timestamp).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+    return `<div class="log-row">
+      <span class="log-time">${t}</span>
+      <span class="log-text"><span class="log-product">${l.product_name}</span> — ${l.quantity_used} used by ${l.employee_name}</span>
+      <span class="badge">Used</span>
+    </div>`;
+  }).join('') : '<div class="loading">No activity yet</div>';
+}
+
+function switchBuilding(b, el) {
+  building = b;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  render();
+}
+
+loadData();
+setInterval(loadData, 30000);
+</script>
+</body>
+</html>
