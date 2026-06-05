@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TVT Inventory Update</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f0f2f5;min-height:100vh;display:flex;align-items:flex-start;justify-content:center;padding:1.5rem 1rem}
+.card{background:white;border-radius:16px;padding:1.75rem;width:100%;max-width:420px;box-shadow:0 2px 16px rgba(0,0,0,0.08)}
+.logo{display:flex;align-items:center;gap:10px;margin-bottom:1.5rem}
+.logo-icon{font-size:28px}
+.logo-text h1{font-size:17px;font-weight:700;color:#111}
+.logo-text p{font-size:12px;color:#888;margin-top:1px}
+.field{margin-bottom:1rem}
+label{display:block;font-size:13px;font-weight:500;color:#555;margin-bottom:5px}
+select,input{width:100%;padding:10px 12px;border:1.5px solid #e5e7eb;border-radius:8px;font-size:15px;color:#111;background:white;outline:none}
+select:focus,input:focus{border-color:#111}
+.btn{width:100%;padding:13px;background:#111;color:white;border:none;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer;margin-top:0.5rem}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.success{background:#f0fdf4;border:1.5px solid #86efac;border-radius:8px;padding:14px;text-align:center;color:#166534;font-size:14px;font-weight:500;margin-top:1rem;display:none}
+.error-box{background:#fef2f2;border:1.5px solid #fca5a5;border-radius:8px;padding:14px;text-align:center;color:#991b1b;font-size:14px;margin-top:1rem;display:none}
+.divider{height:1px;background:#f3f4f6;margin:1rem 0}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">
+    <div class="logo-icon">📦</div>
+    <div class="logo-text">
+      <h1>TVT Inventory Update</h1>
+      <p>Log supply usage here</p>
+    </div>
+  </div>
+
+  <div class="field">
+    <label>Your name</label>
+    <select id="employee">
+      <option value="">Select your name...</option>
+      <optgroup label="— Destiny 1 —">
+        <option>Maria T.</option><option>Maria C.</option><option>Caleb B.</option>
+        <option>Felisa</option><option>Henry</option><option>Ruben</option><option>Ma Isabel</option>
+      </optgroup>
+      <optgroup label="— Destiny 2 —">
+        <option>Hari</option><option>Maria Celis</option><option>Rosa Jacobo</option>
+        <option>Aliah</option><option>Wendy</option><option>Maria Rodriguez</option>
+        <option>Katy</option><option>Luis</option><option>Christopher Marere</option>
+        <option>Jorge</option><option>Marlene</option><option>Jaylin</option><option>Serena</option>
+      </optgroup>
+    </select>
+  </div>
+
+  <div class="field">
+    <label>Building</label>
+    <select id="building">
+      <option value="">Select building...</option>
+      <option>Destiny 1</option>
+      <option>Destiny 2</option>
+    </select>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="field">
+    <label>Category</label>
+    <select id="category" onchange="updateProducts()">
+      <option value="">Select category...</option>
+      <option>Chemicals</option><option>Gloves</option>
+      <option>Dusting Supplies</option><option>Rags</option><option>Mops</option>
+    </select>
+  </div>
+
+  <div class="field">
+    <label>Product used</label>
+    <select id="product"><option value="">Select product...</option></select>
+  </div>
+
+  <div class="field">
+    <label>Quantity used</label>
+    <input type="number" id="quantity" min="1" max="99" placeholder="How many?">
+  </div>
+
+  <button class="btn" onclick="submitForm()" id="submitBtn">✓ Submit update</button>
+  <div class="success" id="success">✅ Submitted! Thank you.</div>
+  <div class="error-box" id="errorBox"></div>
+</div>
+
+<script>
+const { createClient } = supabase;
+const client = createClient(
+  'https://hvqrcfhggbrtjioabmyr.supabase.co',
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh2cXJjZmhnZ2JydGppb2FibXlyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA0MzIzMjYsImV4cCI6MjA5NjAwODMyNn0.CgkMIcCUS3Dd9qKhzETlBrba-5ODiO1hQvipTjoiIm0'
+);
+
+const products = {
+  'Chemicals': ['Virex','Crew','Spitfire','Glance','Breakdown','Stride','Spot Cleaner','Emerle'],
+  'Gloves': ['Small Gloves','Medium Gloves','Large Gloves','XL Gloves'],
+  'Dusting Supplies': ['Dusters','Easy Trap 3M','Yellow Cloth'],
+  'Rags': ['Yellow Rags','Blue Rags','Green Rags'],
+  'Mops': ['Flat Mops','White Mop Heads']
+};
+
+function updateProducts() {
+  const cat = document.getElementById('category').value;
+  const sel = document.getElementById('product');
+  sel.innerHTML = '<option value="">Select product...</option>';
+  if (cat && products[cat]) {
+    products[cat].forEach(p => {
+      const o = document.createElement('option');
+      o.value = p; o.textContent = p; sel.appendChild(o);
+    });
+  }
+}
+
+function showError(msg) {
+  const el = document.getElementById('errorBox');
+  el.textContent = '❌ ' + msg;
+  el.style.display = 'block';
+}
+
+async function submitForm() {
+  const employee = document.getElementById('employee').value;
+  const building = document.getElementById('building').value;
+  const product = document.getElementById('product').value;
+  const quantity = parseInt(document.getElementById('quantity').value);
+
+  if (!employee || !building || !product || !quantity) {
+    alert('Please fill in all fields.'); return;
+  }
+
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = true; btn.textContent = 'Submitting...';
+  document.getElementById('success').style.display = 'none';
+  document.getElementById('errorBox').style.display = 'none';
+
+  try {
+    // 1. Get current count
+    const { data: rows, error: getErr } = await client
+      .from('storage')
+      .select('current_count')
+      .eq('building', building)
+      .eq('product_name', product);
+
+    if (getErr) throw new Error('Get failed: ' + getErr.message);
+    if (!rows || rows.length === 0) throw new Error('Product not found in storage');
+
+    const newCount = Math.max(0, rows[0].current_count - quantity);
+
+    // 2. Update storage count using building + product_name as filter
+    const { error: updateErr } = await client
+      .from('storage')
+      .update({ current_count: newCount })
+      .eq('building', building)
+      .eq('product_name', product);
+
+    if (updateErr) throw new Error('Update failed: ' + updateErr.message);
+
+    // 3. Log to activity_log
+    const { error: logErr } = await client.from('activity_log').insert({
+      employee_name: employee,
+      building: building,
+      product_name: product,
+      quantity_used: quantity,
+      timestamp: new Date().toISOString()
+    });
+    if (logErr) throw new Error('Log failed: ' + logErr.message);
+
+    document.getElementById('success').style.display = 'block';
+    document.getElementById('employee').value = '';
+    document.getElementById('building').value = '';
+    document.getElementById('category').value = '';
+    document.getElementById('product').innerHTML = '<option value="">Select product...</option>';
+    document.getElementById('quantity').value = '';
+
+  } catch(e) {
+    console.error(e);
+    showError(e.message);
+  }
+
+  btn.disabled = false; btn.textContent = '✓ Submit update';
+}
+</script>
+</body>
+</html>
